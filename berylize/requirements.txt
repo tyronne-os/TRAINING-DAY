@@ -1,0 +1,27 @@
+# Web / WebRTC
+aiohttp>=3.9
+aiortc>=1.9
+aiofiles>=23.0
+av>=12.0
+
+# AI APIs
+openai>=1.30
+
+# ASR
+faster-whisper>=1.0
+torch>=2.3
+
+# Audio / signal
+soundfile>=0.12
+scipy>=1.13
+numpy>=1.26
+
+# AVTR-1 renderer client
+httpx>=0.27
+
+# Image
+opencv-python-headless>=4.9
+Pillow>=10.0
+
+# Env
+python-dotenv>=1.0

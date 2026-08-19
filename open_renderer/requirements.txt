@@ -1,0 +1,12 @@
+fastapi>=0.111.0
+uvicorn>=0.30.0
+safetensors>=0.4.0
+httpx>=0.27.0
+numpy>=1.26.0
+opencv-python-headless>=4.9.0
+torch>=2.1.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
+huggingface_hub>=0.23.0
+diffusers==0.27.2
+mmengine>=0.10.0

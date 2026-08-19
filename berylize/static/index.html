@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Berylize — Eve</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500&family=DM+Mono:wght@400;500&display=swap"/>
+<style>
+/* ── TOKENS ───────────────────────────────────────────────────────────── */
+:root {
+  --bg:          #060911;
+  --surface:     #0b1019;
+  --surface2:    #111826;
+  --surface3:    #18212f;
+  --border:      #1c2c3e;
+  --border-soft: #111d2c;
+  --accent:      #3dffa0;
+  --accent-dim:  rgba(61,255,160,0.10);
+  --accent-glow: rgba(61,255,160,0.06);
+  --gold:        #c9a84c;
+  --gold-dim:    rgba(201,168,76,0.12);
+  --live:        #3dffa0;
+  --speaking:    #4db8ff;
+  --error:       #ff5c5c;
+  --text:        #dce6f4;
+  --text-mid:    #7a90ac;
+  --text-muted:  #3a5068;
+  --radius:      14px;
+  --radius-sm:   8px;
+}
+
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(61,255,160,.006) 3px,rgba(61,255,160,.006) 4px);
+  pointer-events: none;
+  z-index: 0;
+}
+body > * { position: relative; z-index: 1; }
+
+/* ── HEADER ───────────────────────────────────────────────────────────── */
+header {
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 24px 0;
+}
+
+.wordmark {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.wm-top {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.wm-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: var(--text);
+  line-height: 1;
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+  transition: all .3s ease;
+  cursor: default;
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: background .3s ease;
+  flex-shrink: 0;
+}
+.status-pill.connecting .status-dot { background: var(--gold); animation: pulse 1.2s infinite; }
+.status-pill.live        .status-dot { background: var(--live); }
+.status-pill.speaking    .status-dot { background: var(--speaking); animation: pulse .7s infinite; }
+.status-pill.error       .status-dot { background: var(--error); }
+.status-pill.live        { color: var(--text-mid); border-color: rgba(61,255,160,.2); }
+.status-pill.speaking    { color: var(--speaking); border-color: rgba(77,184,255,.2); }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* ── MAIN ─────────────────────────────────────────────────────────────── */
+main {
+  width: 100%;
+  max-width: 860px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── AGENT RAIL ───────────────────────────────────────────────────────── */
+.agent-rail {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.agent-rail::-webkit-scrollbar { display: none; }
+
+.agent-btn {
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+  overflow: hidden;
+}
+.agent-btn::before {
+  content:''; position:absolute; inset:0;
+  background:var(--accent-dim);
+  opacity:0; transition:opacity .2s;
+}
+.agent-btn:hover::before, .agent-btn.active::before { opacity:1; }
+.agent-btn.active { border-color: var(--accent); }
+
+.agent-thumb {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  transition: border-color .2s;
+  flex-shrink: 0;
+}
+.agent-btn.active .agent-thumb { border-color: var(--accent); }
+
+.agent-info { display: flex; flex-direction: column; gap: 1px; }
+.agent-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px; font-weight: 700;
+  color: var(--text-mid); letter-spacing: -.01em;
+  transition: color .2s;
+}
+.agent-btn.active .agent-name { color: var(--accent); }
+.agent-role {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+
+/* ── STAGE ────────────────────────────────────────────────────────────── */
+.stage-wrap {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3/4;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* subtle corner breathing glow when listening */
+.stage::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: calc(var(--radius) + 2px);
+  border: 2px solid var(--accent);
+  opacity: 0;
+  transition: opacity .5s ease;
+  pointer-events: none;
+  z-index: 10;
+  animation: glow-ring 2.5s ease-in-out infinite;
+}
+.stage.listening::after { opacity: 1; }
+@keyframes glow-ring {
+  0%,100% { box-shadow: 0 0 12px var(--accent-glow); opacity:.5; }
+  50%      { box-shadow: 0 0 28px rgba(61,255,160,.15); opacity:.2; }
+}
+
+.stage-portrait {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  transition: opacity .5s ease;
+}
+.stage-video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity .6s ease;
+  z-index: 2;
+}
+.stage-video.live { opacity: 1; }
+
+.stage-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  z-index: 10;
+  padding: 40px 16px 16px;
+  background: linear-gradient(to top, rgba(6,9,17,.85) 0%, transparent 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.stage-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: #fff;
+}
+.stage-role {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-top: 1px;
+}
+
+.mic-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: rgba(6,9,17,.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.mic-btn:hover { border-color: var(--accent); background: rgba(61,255,160,.08); }
+.mic-btn.muted { border-color: var(--error); }
+.mic-btn svg { width: 16px; height: 16px; stroke: #fff; }
+
+/* waveform canvas */
+.waveform {
+  position: absolute;
+  top: 14px; left: 50%; transform: translateX(-50%);
+  width: 80px; height: 24px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+.stage.speaking .waveform { opacity: 1; }
+
+/* ── SIDE PANEL ───────────────────────────────────────────────────────── */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.panel-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* transcript */
+.transcript {
+  padding: 12px 14px;
+  min-height: 160px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-soft) transparent;
+}
+.transcript::-webkit-scrollbar { width: 3px; }
+.transcript::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.t-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: auto 0;
+}
+
+.t-line { display: flex; flex-direction: column; gap: 2px; }
+.t-who {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.t-line.user .t-who  { color: var(--text-muted); }
+.t-line.agent .t-who { color: var(--accent); }
+.t-text {
+  font-size: 13px;
+  line-height: 1.55;
+}
+.t-line.user .t-text  { color: var(--text); }
+.t-line.agent .t-text { color: var(--text-mid); }
+
+/* latency bar */
+.latency-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 10px 14px;
+  gap: 4px;
+  border-top: 1px solid var(--border-soft);
+}
+.lat-cell { text-align: center; }
+.lat-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+  line-height: 1;
+}
+.lat-lbl {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* pipeline status */
+.pipe-status {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pipe-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.pipe-name { color: var(--text-mid); }
+.pipe-dot  {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.pipe-dot.ok  { background: var(--live); box-shadow: 0 0 4px var(--accent-glow); }
+.pipe-dot.err { background: var(--error); }
+
+/* ── INPUT ROW ────────────────────────────────────────────────────────── */
+.input-row {
+  display: flex;
+  gap: 8px;
+}
+
+textarea.text-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  resize: none;
+  height: 48px;
+  line-height: 24px;
+  transition: border-color .2s;
+}
+textarea.text-input:focus { border-color: rgba(61,255,160,.35); }
+textarea.text-input::placeholder { color: var(--text-muted); }
+
+.send-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  width: 48px; height: 48px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background .2s, transform .1s;
+}
+.send-btn:hover  { background: #5cffc0; }
+.send-btn:active { transform: scale(.94); }
+.send-btn svg { width: 17px; height: 17px; }
+
+/* ── RESPONSIVE ───────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .stage-wrap { grid-template-columns: 1fr; }
+  .side-panel { order: -1; }
+}
+
+#remoteAudio { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">
+    <span class="wm-top">Berylize</span>
+    <span class="wm-name">Eve</span>
+  </div>
+  <div class="status-pill" id="statusPill">
+    <span class="status-dot"></span>
+    <span id="statusTxt">Connecting…</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Agent rail -->
+  <div class="agent-rail" id="agentRail">
+    <button class="agent-btn active" data-name="evedefault" onclick="selectAgent('evedefault')">
+      <img class="agent-thumb" src="/avatars/evedefault" alt="Eve" onerror="this.style.opacity='.2'"/>
+      <div class="agent-info">
+        <span class="agent-name">Eve</span>
+        <span class="agent-role">Default</span>
+      </div>
+    </button>
+    <button class="agent-btn" data-name="jeff" onclick="selectAgent('jeff')">
+      <img class="agent-thumb" src="/avatars/jeff" alt="Jeff" onerror="this.style.opacity='.2'"/>
+      <div class="agent-info">
+        <span class="agent-name">Jeff</span>
+        <span class="agent-role">Founder</span>
+      </div>
+    </button>
+    <button class="agent-btn" data-name="nu" onclick="selectAgent('nu')">
+      <img class="agent-thumb" src="/avatars/nu" alt="Nu" onerror="this.style.opacity='.2'"/>
+      <div class="agent-info">
+        <span class="agent-name">Nu</span>
+        <span class="agent-role">Analyst</span>
+      </div>
+    </button>
+    <button class="agent-btn" data-name="india" onclick="selectAgent('india')">
+      <img class="agent-thumb" src="/avatars/india" alt="India" onerror="this.style.opacity='.2'"/>
+      <div class="agent-info">
+        <span class="agent-name">India</span>
+        <span class="agent-role">Creative</span>
+      </div>
+    </button>
+    <button class="agent-btn" data-name="amanda" onclick="selectAgent('amanda')">
+      <img class="agent-thumb" src="/avatars/amanda" alt="Amanda" onerror="this.style.opacity='.2'"/>
+      <div class="agent-info">
+        <span class="agent-name">Amanda</span>
+        <span class="agent-role">Strategy</span>
+      </div>
+    </button>
+  </div>
+
+  <!-- Stage + side panel -->
+  <div class="stage-wrap">
+
+    <!-- Stage -->
+    <div class="stage listening" id="stage">
+      <canvas class="waveform" id="waveCanvas" width="80" height="24"></canvas>
+      <img class="stage-portrait" id="portrait" src="/avatars/evedefault" alt="Eve"/>
+      <video class="stage-video" id="remoteVideo" autoplay playsinline muted></video>
+      <div class="stage-overlay">
+        <div>
+          <div class="stage-name" id="stageName">Eve</div>
+          <div class="stage-role" id="stageRole">Default</div>
+        </div>
+        <div class="mic-btn" id="micBtn" onclick="toggleMic()" title="Toggle mic">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8"  y1="23" x2="16" y2="23"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side panel -->
+    <div class="side-panel">
+
+      <!-- Transcript -->
+      <div class="panel-card">
+        <div class="panel-label">Conversation</div>
+        <div class="transcript" id="transcript">
+          <span class="t-empty">Say something or type below…</span>
+        </div>
+        <div class="latency-row">
+          <div class="lat-cell"><div class="lat-num" id="latASR">—</div><div class="lat-lbl">ASR ms</div></div>
+          <div class="lat-cell"><div class="lat-num" id="latLLM">—</div><div class="lat-lbl">LLM ms</div></div>
+          <div class="lat-cell"><div class="lat-num" id="latE2E">—</div><div class="lat-lbl">E2E ms</div></div>
+        </div>
+      </div>
+
+      <!-- Pipeline status -->
+      <div class="panel-card">
+        <div class="panel-label">Pipeline</div>
+        <div class="pipe-status">
+          <div class="pipe-row"><span class="pipe-name">AVTR-1 Renderer</span><span class="pipe-dot" id="dotAVTR"></span></div>
+          <div class="pipe-row"><span class="pipe-name">ASR (faster-whisper)</span><span class="pipe-dot" id="dotASR"></span></div>
+          <div class="pipe-row"><span class="pipe-name">Brain (GPT-4o)</span><span class="pipe-dot" id="dotBrain"></span></div>
+          <div class="pipe-row"><span class="pipe-name">TTS (tts-1-hd)</span><span class="pipe-dot" id="dotTTS"></span></div>
+          <div class="pipe-row"><span class="pipe-name">WebRTC</span><span class="pipe-dot" id="dotWRTC"></span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Text input -->
+  <div class="input-row">
+    <textarea
+      class="text-input"
+      id="textInput"
+      placeholder="Type to Eve…"
+      rows="1"
+      onkeydown="onKey(event)"
+    ></textarea>
+    <button class="send-btn" onclick="sendText()" title="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </div>
+
+</main>
+
+<audio id="remoteAudio" autoplay></audio>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let pc = null, micStream = null, micEnabled = true;
+let activeAgent = 'evedefault', sessionId = null;
+let connState = 'init';
+let transcriptLines = [];
+let t0Call = null;
+
+const AGENTS = {
+  evedefault: { name: 'Eve',    role: 'Default'  },
+  jeff:       { name: 'Jeff',   role: 'Founder'  },
+  nu:         { name: 'Nu',     role: 'Analyst'  },
+  india:      { name: 'India',  role: 'Creative' },
+  amanda:     { name: 'Amanda', role: 'Strategy' },
+};
+
+// ── Status ───────────────────────────────────────────────────────────────────
+function setStatus(state, label) {
+  connState = state;
+  const pill = document.getElementById('statusPill');
+  const txt  = document.getElementById('statusTxt');
+  pill.className = `status-pill ${state}`;
+  txt.textContent = label;
+  document.getElementById('dotWRTC').className =
+    'pipe-dot ' + (state === 'live' || state === 'speaking' ? 'ok' : '');
+}
+
+// ── Pipeline status poll ──────────────────────────────────────────────────────
+async function pollStatus() {
+  try {
+    const r = await fetch('/status');
+    const d = await r.json();
+    document.getElementById('dotAVTR').className  = 'pipe-dot ' + (d.avtr1 ? 'ok' : 'err');
+    document.getElementById('dotASR').className   = 'pipe-dot ok';  // always loaded
+    document.getElementById('dotBrain').className = 'pipe-dot ok';
+    document.getElementById('dotTTS').className   = 'pipe-dot ok';
+  } catch(e) {}
+}
+setInterval(pollStatus, 5000);
+pollStatus();
+
+// ── Agent selector ────────────────────────────────────────────────────────────
+async function selectAgent(name) {
+  if (name === activeAgent) return;
+  activeAgent = name;
+
+  document.querySelectorAll('.agent-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.name === name)
+  );
+
+  const info = AGENTS[name] || { name, role: '' };
+  document.getElementById('portrait').src   = `/avatars/${name}`;
+  document.getElementById('stageName').textContent = info.name;
+  document.getElementById('stageRole').textContent = info.role;
+
+  try {
+    await fetch('/set_avatar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name, session_id: sessionId }),
+    });
+  } catch(e) {}
+}
+
+// ── WebRTC ────────────────────────────────────────────────────────────────────
+async function connect() {
+  setStatus('connecting', 'Connecting…');
+
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    console.warn('Mic unavailable:', e);
+    micStream = null;
+  }
+
+  pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+  if (micStream) micStream.getTracks().forEach(t => pc.addTrack(t, micStream));
+
+  pc.ontrack = ({ track, streams }) => {
+    if (track.kind === 'video') {
+      const v = document.getElementById('remoteVideo');
+      v.srcObject = streams[0];
+      v.onloadedmetadata = () => {
+        v.classList.add('live');
+        document.getElementById('portrait').style.opacity = '0';
+        setStatus('live', 'Live');
+      };
+    }
+    if (track.kind === 'audio') {
+      document.getElementById('remoteAudio').srcObject = streams[0];
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    if (s === 'connected')    setStatus('live', 'Live');
+    if (s === 'disconnected') setStatus('connecting', 'Reconnecting…');
+    if (s === 'failed')       { setStatus('error', 'Failed'); setTimeout(reconnect, 3000); }
+    if (s === 'closed')       setStatus('init', 'Offline');
+  };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  try {
+    const resp = await fetch('/offer', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        sdp: pc.localDescription.sdp,
+        type: pc.localDescription.type,
+        avatar: activeAgent,
+      }),
+    });
+    const answer = await resp.json();
+    sessionId = answer.session_id || null;
+    await pc.setRemoteDescription(answer);
+  } catch(e) {
+    console.error('Offer failed:', e);
+    setStatus('error', 'Connection failed');
+  }
+}
+
+function reconnect() {
+  if (pc) { pc.close(); pc = null; }
+  connect();
+}
+
+// ── Mic toggle ────────────────────────────────────────────────────────────────
+function toggleMic() {
+  if (!micStream) return;
+  micEnabled = !micEnabled;
+  micStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+  const btn = document.getElementById('micBtn');
+  const stage = document.getElementById('stage');
+  btn.classList.toggle('muted', !micEnabled);
+  stage.classList.toggle('listening', micEnabled);
+}
+
+// ── Text input ────────────────────────────────────────────────────────────────
+function onKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+}
+
+async function sendText() {
+  const el   = document.getElementById('textInput');
+  const text = el.value.trim();
+  if (!text) return;
+  el.value = '';
+
+  addLine('user', text, AGENTS[activeAgent]?.name || activeAgent);
+  setStatus('speaking', 'Speaking…');
+  t0Call = performance.now();
+
+  try {
+    await fetch('/text_input', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ text, avatar: activeAgent, session_id: sessionId }),
+    });
+  } catch(e) {
+    setStatus('live', 'Live');
+  }
+}
+
+// ── Transcript ────────────────────────────────────────────────────────────────
+function addLine(role, text, speaker) {
+  const box = document.getElementById('transcript');
+  const empty = box.querySelector('.t-empty');
+  if (empty) empty.remove();
+
+  transcriptLines.push({ role, text, speaker });
+  if (transcriptLines.length > 16) transcriptLines.shift();
+
+  box.innerHTML = transcriptLines.map(l => `
+    <div class="t-line ${l.role}">
+      <span class="t-who">${esc(l.speaker)}</span>
+      <span class="t-text">${esc(l.text)}</span>
+    </div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Waveform animation ────────────────────────────────────────────────────────
+(function waveformLoop() {
+  const canvas = document.getElementById('waveCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = 80, H = 24;
+  let t = 0;
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const speaking = document.getElementById('stage').classList.contains('speaking');
+    ctx.strokeStyle = speaking ? '#4db8ff' : '#3dffa0';
+    ctx.lineWidth   = 1.2;
+    ctx.beginPath();
+    for (let x = 0; x < W; x++) {
+      const phase = (x / W) * Math.PI * 6 + t;
+      const amp   = speaking ? 8 + Math.sin(t * 3 + x * 0.2) * 4 : 3;
+      const y = H / 2 + Math.sin(phase) * amp * (0.5 + 0.5 * Math.sin(t * 1.7 + x * 0.05));
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    t += 0.08;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('portrait').src = `/avatars/${activeAgent}`;
+  connect();
+});
+</script>
+</body>
+</html>
